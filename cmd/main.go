@@ -48,14 +48,27 @@ func main() {
 	fmt.Println("balance after payment:", account.Balance)
 
 	// Find account by ID
-	acc, err := svc.FindAccountByID(1)
+	account, err = svc.FindAccountByID(1)
 	if err != nil {
-		switch err {
-		case wallet.ErrAccountNotFound:
-			fmt.Println("Аккаунт пользователя не найден")
-		}
+		fmt.Println(err)
 		return
 	}
-	fmt.Println("Account:", acc)
+	fmt.Println("Account:", account)
+
+	// Find payment by ID
+	payment, err = svc.FindPaymentByID(payment.ID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Payment:", payment)
+
+	// reject payment
+	err = svc.Reject(payment.ID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Account after rejection:", account)
 
 }
