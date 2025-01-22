@@ -1,0 +1,61 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/akmalsulaymonov/alif-wallet/pkg/wallet"
+)
+
+func main() {
+	svc := &wallet.Service{}
+
+	// Register account
+	account, err := svc.RegisterAccount("+992918246924")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// Deposit to account
+	err = svc.Deposit(account.ID, 10)
+	if err != nil {
+		switch err {
+		case wallet.ErrAmountMustBePositive:
+			fmt.Println("Сумма дожлна быть положительной")
+		case wallet.ErrAccountNotFound:
+			fmt.Println("Аккаунт пользователя не найден")
+		}
+		return
+	}
+
+	fmt.Println("account after deposit:", account)
+
+	// Make a payment
+	payment, err := svc.Pay(account.ID, 5, "food")
+	if err != nil {
+		switch err {
+		case wallet.ErrAmountMustBePositive:
+			fmt.Println("Сумма дожлна быть положительной")
+		case wallet.ErrAccountNotFound:
+			fmt.Println("Аккаунт пользователя не найден")
+		case wallet.ErrNotEnoughBalance:
+			fmt.Println("Недостаточно баланса")
+		}
+		return
+	}
+
+	fmt.Println("Payment:", payment)
+	fmt.Println("balance after payment:", account.Balance)
+
+	// Find account by ID
+	acc, err := svc.FindAccountByID(1)
+	if err != nil {
+		switch err {
+		case wallet.ErrAccountNotFound:
+			fmt.Println("Аккаунт пользователя не найден")
+		}
+		return
+	}
+	fmt.Println("Account:", acc)
+
+}
