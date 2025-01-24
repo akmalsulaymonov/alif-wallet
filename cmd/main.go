@@ -15,6 +15,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println("Аккаунт пользователя", account)
 
 	// Deposit to account
 	err = svc.Deposit(account.ID, 10)
@@ -70,5 +71,14 @@ func main() {
 		return
 	}
 	fmt.Println("Account after rejection:", account)
+	fmt.Println("Payment after rejection:", payment)
+
+	// repeat a paeyment
+	pt, err := svc.Repeat(payment.ID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Repeated payment:", pt)
 
 }

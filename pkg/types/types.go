@@ -11,9 +11,9 @@ type PaymentStatus string
 
 // Payment status variables
 const (
-	PaymentStatusStatusOk         PaymentStatus = "OK"
-	PaymentStatusStatusFail       PaymentStatus = "FAIL"
-	PaymentStatusStatusInProgress PaymentStatus = "INPROGRESS"
+	PaymentStatusOk         PaymentStatus = "OK"
+	PaymentStatusFail       PaymentStatus = "FAIL"
+	PaymentStatusInProgress PaymentStatus = "INPROGRESS"
 )
 
 type Payment struct {
