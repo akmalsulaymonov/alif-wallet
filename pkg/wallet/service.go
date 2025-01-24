@@ -17,6 +17,7 @@ type Service struct {
 	nextAccountID int64
 	accounts      []*types.Account
 	payments      []*types.Payment
+	favorites     []*types.Favorite // Список избранных платежей
 }
 
 func (s *Service) RegisterAccount(phone types.Phone) (*types.Account, error) {
@@ -160,5 +161,68 @@ func (s *Service) Repeat(paymentID string) (*types.Payment, error) {
 	}
 
 	return result, nil
+}
 
+func (s *Service) FavoritePayment(paymentID string, name string) (*types.Favorite, error) {
+	// Находим существующий платёж
+	payment, err := s.FindPaymentByID(paymentID)
+	if err != nil {
+		return nil, ErrPaymentNotFound
+	}
+
+	// Создаём новый элемент избранного
+	favorite := &types.Favorite{
+		ID:        uuid.New().String(),
+		AccountID: payment.AccountID,
+		Name:      name,
+		Amount:    payment.Amount,
+		Category:  payment.Category,
+	}
+
+	// Добавляем в список избранного
+	s.favorites = append(s.favorites, favorite)
+
+	return favorite, nil
+}
+
+func (s *Service) PayFromFavorite(favoriteID string) (*types.Payment, error) {
+    // Находим элемент избранного
+    var favorite *types.Favorite
+    for _, f := range s.favorites {
+        if f.ID == favoriteID {
+            favorite = f
+            break
+        }
+    }
+    if favorite == nil {
+        return nil, errors.New("favorite not found")
+    }
+
+    // Проверяем аккаунт
+    account, err := s.FindAccountByID(favorite.AccountID)
+    if err != nil {
+        return nil, ErrAccountNotFound
+    }
+
+    // Проверяем баланс
+    if account.Balance < favorite.Amount {
+        return nil, ErrNotEnoughBalance
+    }
+
+    // Создаём платёж
+    payment := &types.Payment{
+        ID:        uuid.New().String(),
+        AccountID: favorite.AccountID,
+        Amount:    favorite.Amount,
+        Category:  favorite.Category,
+        Status:    types.PaymentStatusInProgress,
+    }
+
+    // Обновляем баланс
+    account.Balance -= favorite.Amount
+
+    // Добавляем платёж в список
+    s.payments = append(s.payments, payment)
+
+    return payment, nil
 }

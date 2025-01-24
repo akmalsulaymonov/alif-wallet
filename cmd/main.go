@@ -81,4 +81,19 @@ func main() {
 	}
 	fmt.Println("Repeated payment:", pt)
 
+	// favorites
+	favorite, err := svc.FavoritePayment(payment.ID, "FooD")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Favorite added:", favorite)
+
+	// pay from favorite
+	pf, err := svc.PayFromFavorite(favorite.ID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Paid from Favorite:", pf)
 }

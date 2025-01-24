@@ -154,3 +154,64 @@ func TestService_Repeat_NotFound(t *testing.T) {
 		t.Errorf("expected error %v, got %v", ErrPaymentNotFound, err)
 	}
 }
+
+func TestService_FavoritePayment(t *testing.T) {
+    s := &Service{}
+
+    account, err := s.RegisterAccount("12345")
+    if err != nil {
+        t.Fatalf("failed to register account: %v", err)
+    }
+
+    err = s.Deposit(account.ID, 1000)
+    if err != nil {
+        t.Fatalf("failed to deposit money: %v", err)
+    }
+
+    payment, err := s.Pay(account.ID, 500, "food")
+    if err != nil {
+        t.Fatalf("failed to create payment: %v", err)
+    }
+
+    favorite, err := s.FavoritePayment(payment.ID, "My Favorite Payment")
+    if err != nil {
+        t.Fatalf("failed to create favorite: %v", err)
+    }
+
+    if favorite.Name != "My Favorite Payment" {
+        t.Errorf("expected favorite name %v, got %v", "My Favorite Payment", favorite.Name)
+    }
+}
+
+func TestService_PayFromFavorite(t *testing.T) {
+    s := &Service{}
+
+    account, err := s.RegisterAccount("12345")
+    if err != nil {
+        t.Fatalf("failed to register account: %v", err)
+    }
+
+    err = s.Deposit(account.ID, 1000)
+    if err != nil {
+        t.Fatalf("failed to deposit money: %v", err)
+    }
+
+    payment, err := s.Pay(account.ID, 500, "food")
+    if err != nil {
+        t.Fatalf("failed to create payment: %v", err)
+    }
+
+    favorite, err := s.FavoritePayment(payment.ID, "Favorite")
+    if err != nil {
+        t.Fatalf("failed to create favorite: %v", err)
+    }
+
+    newPayment, err := s.PayFromFavorite(favorite.ID)
+    if err != nil {
+        t.Fatalf("failed to pay from favorite: %v", err)
+    }
+
+    if newPayment.Amount != favorite.Amount {
+        t.Errorf("expected payment amount %v, got %v", favorite.Amount, newPayment.Amount)
+    }
+}
