@@ -229,3 +229,19 @@ func TestService_Export_success_user(t *testing.T) {
 	}
 
 }
+
+func TestService_Import_success_user(t *testing.T) {
+	s := &Service{}
+
+	err := s.ExportToFile("export.txt")
+	if err != nil {
+		t.Errorf("method ExportToFile returned not nil error, err => %v", err)
+	}
+
+	err = s.ImportFromFile("export.txt")
+
+	if err != nil {
+		t.Errorf("method ImportToFile returned not nil error, err => %v", err)
+	}
+
+}

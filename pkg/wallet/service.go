@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/akmalsulaymonov/alif-wallet/pkg/types"
 	"github.com/google/uuid"
@@ -246,6 +248,31 @@ func (s *Service) ExportToFile(path string) error {
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *Service) ImportFromFile(path string) error {
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	str := strings.Split(string(data), "|")
+
+	for i := 0; i < len(str)-1; i++ {
+		str_item := strings.Split(str[i], ";")
+		id, _ := strconv.ParseInt(str_item[0], 10, 64)
+		balance, _ := strconv.ParseInt(str_item[2], 10, 64)
+		phone := (str_item[1])
+
+		s.accounts = append(s.accounts, &types.Account{
+			ID:      id,
+			Phone:   types.Phone(phone),
+			Balance: types.Money(balance),
+		})
 	}
 
 	return nil
