@@ -2,6 +2,8 @@ package wallet
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
 	"github.com/akmalsulaymonov/alif-wallet/pkg/types"
 	"github.com/google/uuid"
@@ -186,43 +188,65 @@ func (s *Service) FavoritePayment(paymentID string, name string) (*types.Favorit
 }
 
 func (s *Service) PayFromFavorite(favoriteID string) (*types.Payment, error) {
-    // Находим элемент избранного
-    var favorite *types.Favorite
-    for _, f := range s.favorites {
-        if f.ID == favoriteID {
-            favorite = f
-            break
-        }
-    }
-    if favorite == nil {
-        return nil, errors.New("favorite not found")
-    }
+	// Находим элемент избранного
+	var favorite *types.Favorite
+	for _, f := range s.favorites {
+		if f.ID == favoriteID {
+			favorite = f
+			break
+		}
+	}
+	if favorite == nil {
+		return nil, errors.New("favorite not found")
+	}
 
-    // Проверяем аккаунт
-    account, err := s.FindAccountByID(favorite.AccountID)
-    if err != nil {
-        return nil, ErrAccountNotFound
-    }
+	// Проверяем аккаунт
+	account, err := s.FindAccountByID(favorite.AccountID)
+	if err != nil {
+		return nil, ErrAccountNotFound
+	}
 
-    // Проверяем баланс
-    if account.Balance < favorite.Amount {
-        return nil, ErrNotEnoughBalance
-    }
+	// Проверяем баланс
+	if account.Balance < favorite.Amount {
+		return nil, ErrNotEnoughBalance
+	}
 
-    // Создаём платёж
-    payment := &types.Payment{
-        ID:        uuid.New().String(),
-        AccountID: favorite.AccountID,
-        Amount:    favorite.Amount,
-        Category:  favorite.Category,
-        Status:    types.PaymentStatusInProgress,
-    }
+	// Создаём платёж
+	payment := &types.Payment{
+		ID:        uuid.New().String(),
+		AccountID: favorite.AccountID,
+		Amount:    favorite.Amount,
+		Category:  favorite.Category,
+		Status:    types.PaymentStatusInProgress,
+	}
 
-    // Обновляем баланс
-    account.Balance -= favorite.Amount
+	// Обновляем баланс
+	account.Balance -= favorite.Amount
 
-    // Добавляем платёж в список
-    s.payments = append(s.payments, payment)
+	// Добавляем платёж в список
+	s.payments = append(s.payments, payment)
 
-    return payment, nil
+	return payment, nil
+}
+
+// Method for export Account to file
+func (s *Service) ExportToFile(path string) error {
+
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var str string
+	for _, v := range s.accounts {
+		str += fmt.Sprint(v.ID) + ";" + string(v.Phone) + ";" + fmt.Sprint(v.Balance) + "|"
+	}
+	_, err = file.WriteString(str)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

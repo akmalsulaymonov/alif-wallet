@@ -96,4 +96,5 @@ func main() {
 		return
 	}
 	fmt.Println("Paid from Favorite:", pf)
+
 }
