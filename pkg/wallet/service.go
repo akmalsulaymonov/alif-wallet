@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/akmalsulaymonov/alif-wallet/pkg/types"
 	"github.com/google/uuid"
@@ -516,4 +517,110 @@ func (s *Service) HistoryToFiles(payments []types.Payment, dir string, records i
 	}
 
 	return nil
+}
+
+// Method Gorountin SumPAyments
+func (s *Service) SumPayments(gorountines int) types.Money {
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	sum := int64(0)
+	qnt := 0
+	i := 0
+
+	if gorountines == 0 {
+		qnt = len(s.payments)
+	} else {
+		qnt = int(len(s.payments) / gorountines)
+	}
+	for i = 0; i < gorountines-1; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			val := int64(0)
+			payments := s.payments[index*qnt : (index+1)*qnt]
+			for _, payment := range payments {
+				val += int64(payment.Amount)
+			}
+			mu.Lock()
+			sum += val
+			mu.Unlock()
+		}(i)
+	}
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		val := int64(0)
+		payments := s.payments[i*qnt:]
+		for _, payment := range payments {
+			val += int64(payment.Amount)
+		}
+		mu.Lock()
+		sum += val
+		mu.Unlock()
+	}()
+	wg.Wait()
+
+	return types.Money(sum)
+
+}
+
+// Method Groroutines Filter
+func (s *Service) FilterPayments(accountID int64, gorountines int) ([]types.Payment, error) {
+	_, err := s.FindAccountByID(accountID)
+	if err != nil {
+		return nil, ErrAccountNotFound
+	}
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	paymentAccount := []types.Payment{}
+	qnt := 0
+	i := 0
+	if gorountines == 0 {
+		qnt = len(s.payments)
+	} else {
+		qnt = int(len(s.payments) / gorountines)
+	}
+	for i = 0; i < gorountines-1; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			payments := s.payments[index*qnt : (index+1)*qnt]
+			for _, payment := range payments {
+				mu.Lock()
+				if accountID == payment.AccountID {
+
+					paymentAccount = append(paymentAccount, types.Payment{
+						ID:        payment.ID,
+						AccountID: payment.AccountID,
+						Amount:    payment.Amount,
+						Category:  payment.Category,
+						Status:    payment.Status,
+					})
+				}
+				mu.Unlock()
+			}
+		}(i)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		payments := s.payments[i*qnt:]
+		for _, payment := range payments {
+			mu.Lock()
+			if accountID == payment.AccountID {
+				paymentAccount = append(paymentAccount, types.Payment{
+					ID:        payment.ID,
+					AccountID: payment.AccountID,
+					Amount:    payment.Amount,
+					Category:  payment.Category,
+					Status:    payment.Status,
+				})
+			}
+			mu.Unlock()
+		}
+	}()
+	wg.Wait()
+	return paymentAccount, nil
 }

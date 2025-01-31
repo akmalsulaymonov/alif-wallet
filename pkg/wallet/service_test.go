@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -319,4 +320,47 @@ func TestService_HistoryToFiles(t *testing.T) {
 	if len(files) != 2 {
 		t.Errorf("Expected 2 files, got %d", len(files))
 	}
+}
+
+func BenchmarkSumPayment_success(b *testing.B) {
+
+	var svc Service
+
+	account, _ := svc.RegisterAccount("901605036")
+
+	_ = svc.Deposit(account.ID, 100_000)
+
+	_, _ = svc.Pay(account.ID, 10, "ALif")
+	_, _ = svc.Pay(account.ID, 20, "ALif")
+	_, _ = svc.Pay(account.ID, 30, "ALif")
+
+	want := 60
+	got := svc.SumPayments(2)
+	if want != int(got) {
+		b.Errorf("Error,want=>%v got=> %v", want, got)
+	}
+
+}
+
+func BenchmarkFilterPayment_success(b *testing.B) {
+
+	var svc Service
+
+	account, _ := svc.RegisterAccount("901605036")
+
+	_ = svc.Deposit(account.ID, 100_000)
+
+	_, _ = svc.Pay(account.ID, 10, "ALif")
+	_, _ = svc.Pay(account.ID, 20, "ALif")
+	_, _ = svc.Pay(account.ID, 30, "ALif")
+	_, _ = svc.Pay(account.ID, 40, "ALif")
+	_, _ = svc.Pay(account.ID, 50, "ALif")
+
+	want := 5
+	got, _ := svc.FilterPayments(account.ID, 2)
+	fmt.Println("len", len(got))
+	if (got) == nil {
+		b.Errorf("Error,want=>%v got=> %v", want, len(got))
+	}
+
 }
