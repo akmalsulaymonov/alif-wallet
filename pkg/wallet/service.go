@@ -1,9 +1,11 @@
 package wallet
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -273,6 +275,244 @@ func (s *Service) ImportFromFile(path string) error {
 			Phone:   types.Phone(phone),
 			Balance: types.Money(balance),
 		})
+	}
+
+	return nil
+}
+
+// Метод Export сохраняет данные accounts, payments и favorites в файлы, если они существуют.
+func (s *Service) Export(dir string) error {
+	// Экспорт аккаунтов
+	if len(s.accounts) > 0 {
+		file, err := os.Create(filepath.Join(dir, "accounts.dump"))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		for _, account := range s.accounts {
+			_, err := fmt.Fprintf(file, "%d;%s;%d\n", account.ID, account.Phone, account.Balance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Экспорт платежей
+	if len(s.payments) > 0 {
+		file, err := os.Create(filepath.Join(dir, "payments.dump"))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		for _, payment := range s.payments {
+			_, err := fmt.Fprintf(file, "%s;%d;%d;%s;%s\n", payment.ID, payment.AccountID, payment.Amount, payment.Category, payment.Status)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Экспорт избранного
+	if len(s.favorites) > 0 {
+		file, err := os.Create(filepath.Join(dir, "favorites.dump"))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		for _, favorite := range s.favorites {
+			_, err := fmt.Fprintf(file, "%s;%d;%s;%d;%s\n", favorite.ID, favorite.AccountID, favorite.Name, favorite.Amount, favorite.Category)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Метод Import загружает данные из файлов, обновляя существующие записи и добавляя новые.
+func (s *Service) Import(dir string) error {
+	// Импорт аккаунтов
+	file, err := os.Open(filepath.Join(dir, "accounts.dump"))
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			var id int64
+			var phone types.Phone
+			var balance types.Money
+
+			parts := strings.Split(scanner.Text(), ";")
+			if len(parts) != 3 {
+				return errors.New("invalid accounts file format")
+			}
+
+			id, _ = strconv.ParseInt(parts[0], 10, 64)
+			phone = types.Phone(parts[1])
+			val, err := strconv.ParseInt(parts[2], 10, 64)
+			if err != nil {
+				return err // обработка ошибки
+			}
+			balance = types.Money(val) // Явное приведение типа
+
+			account, err := s.FindAccountByID(id)
+			if err == ErrAccountNotFound {
+				s.accounts = append(s.accounts, &types.Account{ID: id, Phone: phone, Balance: balance})
+			} else {
+				account.Balance = balance
+			}
+
+			if id > s.nextAccountID {
+				s.nextAccountID = id
+			}
+		}
+	}
+
+	// Импорт платежей
+	file, err = os.Open(filepath.Join(dir, "payments.dump"))
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			var id string
+			var accountID int64
+			var amount types.Money
+			var category types.PaymentCategory
+			var status types.PaymentStatus
+
+			parts := strings.Split(scanner.Text(), ";")
+			if len(parts) != 5 {
+				return errors.New("invalid payments file format")
+			}
+
+			id = parts[0]
+			accountID, _ = strconv.ParseInt(parts[1], 10, 64)
+
+			val, err := strconv.ParseInt(parts[2], 10, 64)
+			if err != nil {
+				return err // обработка ошибки
+			}
+			amount = types.Money(val) // Явное приведение типа
+
+			category = types.PaymentCategory(parts[3])
+			status = types.PaymentStatus(parts[4])
+
+			s.payments = append(s.payments, &types.Payment{
+				ID:        id,
+				AccountID: accountID,
+				Amount:    amount,
+				Category:  category,
+				Status:    status,
+			})
+		}
+	}
+
+	// Импорт избранного
+	file, err = os.Open(filepath.Join(dir, "favorites.dump"))
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			var id string
+			var accountID int64
+			var name string
+			var amount types.Money
+			var category types.PaymentCategory
+
+			parts := strings.Split(scanner.Text(), ";")
+			if len(parts) != 5 {
+				return errors.New("invalid favorites file format")
+			}
+
+			id = parts[0]
+			accountID, _ = strconv.ParseInt(parts[1], 10, 64)
+			name = parts[2]
+
+			val, err := strconv.ParseInt(parts[2], 10, 64)
+			if err != nil {
+				return err // обработка ошибки
+			}
+			amount = types.Money(val) // Явное приведение типа
+
+			category = types.PaymentCategory(parts[4])
+
+			s.favorites = append(s.favorites, &types.Favorite{
+				ID:        id,
+				AccountID: accountID,
+				Name:      name,
+				Amount:    amount,
+				Category:  category,
+			})
+		}
+	}
+
+	return nil
+}
+
+// Этот метод получает историю платежей конкретного аккаунта.
+func (s *Service) ExportAccountHistory(accountID int64) ([]types.Payment, error) {
+	account, err := s.FindAccountByID(accountID)
+	if err != nil {
+		return nil, ErrAccountNotFound
+	}
+
+	var history []types.Payment
+	for _, payment := range s.payments {
+		if payment.AccountID == account.ID {
+			history = append(history, *payment)
+		}
+	}
+
+	return history, nil
+}
+
+// Метод сохраняет историю платежей в файлы с разделением на части.
+func (s *Service) HistoryToFiles(payments []types.Payment, dir string, records int) error {
+	if len(payments) == 0 {
+		return nil
+	}
+
+	fileCount := 1
+	var file *os.File
+	var err error
+	var writer *bufio.Writer
+
+	for i, payment := range payments {
+		if i%records == 0 {
+			if file != nil {
+				writer.Flush()
+				file.Close()
+			}
+
+			filename := filepath.Join(dir, fmt.Sprintf("payments%d.dump", fileCount))
+			if fileCount == 1 && len(payments) <= records {
+				filename = filepath.Join(dir, "payments.dump")
+			}
+
+			file, err = os.Create(filename)
+			if err != nil {
+				return err
+			}
+			writer = bufio.NewWriter(file)
+			fileCount++
+		}
+
+		_, err := writer.WriteString(fmt.Sprintf("%s;%d;%d;%s;%s\n",
+			payment.ID, payment.AccountID, payment.Amount, payment.Category, payment.Status))
+		if err != nil {
+			return err
+		}
+	}
+
+	if file != nil {
+		writer.Flush()
+		file.Close()
 	}
 
 	return nil

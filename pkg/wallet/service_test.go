@@ -1,6 +1,9 @@
 package wallet
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/akmalsulaymonov/alif-wallet/pkg/types"
@@ -244,4 +247,76 @@ func TestService_Import_success_user(t *testing.T) {
 		t.Errorf("method ImportToFile returned not nil error, err => %v", err)
 	}
 
+}
+
+func TestService_ExportImport(t *testing.T) {
+	dir := "testdata"
+	os.MkdirAll(dir, os.ModePerm)
+	defer os.RemoveAll(dir)
+
+	service := &Service{}
+	acc, _ := service.RegisterAccount("+123456789")
+	pay, _ := service.Pay(acc.ID, 100, "Food")
+	service.FavoritePayment(pay.ID, "Lunch")
+
+	err := service.Export(dir)
+	if len(service.accounts) == 0 {
+		t.Fatalf("no accounts to export")
+	}
+	if err != nil {
+		t.Errorf("Export failed: %v", err)
+	}
+
+	newService := &Service{}
+	err = newService.Import(dir)
+	if err != nil {
+		t.Errorf("Import failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(service.accounts, newService.accounts) {
+		t.Errorf("Accounts mismatch")
+	}
+	if !reflect.DeepEqual(service.payments, newService.payments) {
+		t.Errorf("Payments mismatch")
+	}
+	if !reflect.DeepEqual(service.favorites, newService.favorites) {
+		t.Errorf("Favorites mismatch")
+	}
+}
+
+func TestService_ExportAccountHistory(t *testing.T) {
+	service := &Service{}
+	acc, _ := service.RegisterAccount("+123456789")
+	service.Pay(acc.ID, 100, "Food")
+	service.Pay(acc.ID, 200, "Transport")
+
+	history, err := service.ExportAccountHistory(acc.ID)
+	if err != nil {
+		t.Errorf("ExportAccountHistory failed: %v", err)
+	}
+	if len(history) != 2 {
+		t.Errorf("Expected 2 payments, got %d", len(history))
+	}
+}
+
+func TestService_HistoryToFiles(t *testing.T) {
+	dir := "testdata"
+	os.MkdirAll(dir, os.ModePerm)
+	defer os.RemoveAll(dir)
+
+	service := &Service{}
+	acc, _ := service.RegisterAccount("+123456789")
+	service.Pay(acc.ID, 100, "Food")
+	service.Pay(acc.ID, 200, "Transport")
+
+	history, _ := service.ExportAccountHistory(acc.ID)
+	err := service.HistoryToFiles(history, dir, 1)
+	if err != nil {
+		t.Errorf("HistoryToFiles failed: %v", err)
+	}
+
+	files, _ := filepath.Glob(filepath.Join(dir, "payments*.dump"))
+	if len(files) != 2 {
+		t.Errorf("Expected 2 files, got %d", len(files))
+	}
 }
